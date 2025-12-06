@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Animal Snow Tracks (Mobile & Desktop)</title>
+    <title>Real Sound Snow Tracks</title>
     <style>
         body { 
             margin: 0; 
             overflow: hidden; 
             background-color: #e0e0e0; 
-            /* 모바일에서 텍스트 선택 및 하이라이트 방지 */
             user-select: none;
             -webkit-user-select: none;
             touch-action: none; 
@@ -21,19 +20,18 @@
         #overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.4);
+            background: rgba(0,0,0,0.6);
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             color: white;
-            font-size: 18px;
             z-index: 10;
             transition: opacity 0.5s;
             backdrop-filter: blur(5px);
             text-align: center;
-            padding: 20px;
-            box-sizing: border-box;
         }
+        #loading-text { margin-top: 10px; font-size: 14px; color: #ccc; }
 
         #controls {
             position: absolute;
@@ -42,33 +40,35 @@
             display: flex;
             gap: 8px;
             z-index: 5;
-            flex-wrap: wrap; /* 화면 작으면 줄바꿈 */
+            flex-wrap: wrap;
             justify-content: flex-end;
             max-width: 90%;
         }
         .btn {
-            background: rgba(255, 255, 255, 0.85);
+            background: rgba(255, 255, 255, 0.9);
             border: none;
-            padding: 8px 12px;
-            border-radius: 15px;
+            padding: 8px 14px;
+            border-radius: 20px;
             cursor: pointer;
             font-size: 14px;
             font-weight: bold;
             color: #555;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: all 0.2s;
-            /* 모바일 터치 영역 확보 */
-            min-height: 40px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.1s;
         }
-        .btn:active, .btn:hover { background: white; transform: scale(1.05); }
+        .btn:active { transform: scale(0.95); }
         .btn.active {
-            background: #333;
+            background: #222;
             color: white;
+            transform: scale(1.05);
         }
     </style>
 </head>
 <body>
-    <div id="overlay">화면을 터치하거나 클릭하여<br>눈길을 걸어보세요 (소리 켜짐)</div>
+    <div id="overlay">
+        <h2 style="margin:0;">화면을 클릭하여 시작</h2>
+        <div id="loading-text">고음질 사운드 로딩 중...</div>
+    </div>
     
     <div id="controls">
         <button class="btn active" onclick="setAnimal('human')">사람 👣</button>
@@ -84,28 +84,33 @@
         const canvas = document.getElementById('snowCanvas');
         const ctx = canvas.getContext('2d');
         const overlay = document.getElementById('overlay');
+        const loadingText = document.getElementById('loading-text');
         const bgCanvas = document.createElement('canvas');
         const bgCtx = bgCanvas.getContext('2d');
 
         // --- 변수 설정 ---
         let width, height;
         let footprints = [];
-        
-        // 입력 좌표 (마우스/터치 통합)
         let inputX = 0, inputY = 0;
         let lastStepX = 0, lastStepY = 0;
-        
         let isLeftFoot = true;
-        let isInteracting = false; // 움직임 감지 플래그
-        let audioCtx;
-        let isAudioStarted = false;
+        let isInteracting = false; 
 
+        // --- 오디오 관련 변수 ---
+        let audioCtx;
+        let snowBuffer = null; // 실제 사운드 데이터가 담길 곳
+        let isAudioReady = false;
+
+        // 실제 눈 밟는 소리 파일 (구글 호스팅 사용)
+        const SOUND_URL = 'https://actions.google.com/sounds/v1/foley/footsteps_snow.ogg';
+
+        // 동물별 설정 (pitch: 소리 높낮이 1.0이 기본, 높을수록 가벼운 소리)
         const animals = {
-            human: { dist: 50, soundBase: 600, func: drawHuman },
-            cat:   { dist: 25, soundBase: 1200, func: drawCat },
-            dog:   { dist: 35, soundBase: 900,  func: drawDog },
-            duck:  { dist: 20, soundBase: 1500, func: drawDuck },
-            snake: { dist: 4,  soundBase: 400,  func: drawSnake }
+            human: { dist: 50, pitch: 1.0,  func: drawHuman },
+            cat:   { dist: 25, pitch: 2.0,  func: drawCat },   // 아주 가벼운 소리
+            dog:   { dist: 35, pitch: 1.4,  func: drawDog },
+            duck:  { dist: 20, pitch: 1.8,  func: drawDuck },
+            snake: { dist: 4,  pitch: 0.5,  func: drawSnake }  // 낮고 느린 소리
         };
 
         let currentAnimal = 'human';
@@ -114,6 +119,7 @@
         function init() {
             resize();
             createSnowBackground();
+            loadSound(); // 사운드 파일 다운로드 시작
             animate();
         }
 
@@ -124,63 +130,72 @@
             canvas.height = height;
             bgCanvas.width = width;
             bgCanvas.height = height;
-            createSnowBackground(); // 리사이즈 시 배경 재생성
+            createSnowBackground();
         }
 
         window.setAnimal = function(name) {
             currentAnimal = name;
-            // 터치 이벤트 전파 방지 (버튼 누를 때 눈 찍히지 않게)
             event.stopPropagation();
-            
             document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
         };
 
-        // --- 오디오 시작 (사용자 인터랙션 필요) ---
-        function initAudio() {
-            if (!isAudioStarted) {
+        // --- 진짜 사운드 로딩 (Fetch API) ---
+        async function loadSound() {
+            try {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                isAudioStarted = true;
-                overlay.style.opacity = 0;
-                setTimeout(() => overlay.style.display = 'none', 500);
-            }
-            // 모바일 브라우저는 컨텍스트가 'suspended' 상태일 수 있어 resume 필요
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
+                
+                const response = await fetch(SOUND_URL);
+                const arrayBuffer = await response.arrayBuffer();
+                
+                // 오디오 데이터 디코딩
+                snowBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                isAudioReady = true;
+                loadingText.innerText = "로딩 완료! 클릭해서 시작하세요.";
+            } catch (error) {
+                console.error("사운드 로딩 실패:", error);
+                loadingText.innerText = "사운드 로딩 실패 (인터넷 연결 확인 필요)";
             }
         }
 
-        function playSnowCrunch() {
-            if (!audioCtx) return;
-            const t = audioCtx.currentTime;
-            const animalConfig = animals[currentAnimal];
+        // --- 오디오 재생 엔진 (핵심) ---
+        function playRealSnowSound() {
+            if (!audioCtx || !snowBuffer) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const source = audioCtx.createBufferSource();
+            source.buffer = snowBuffer;
+
+            // 1. 동물별 기본 톤 설정
+            let basePitch = animals[currentAnimal].pitch;
             
-            const volume = currentAnimal === 'snake' ? 0.05 : 0.5;
-            const duration = currentAnimal === 'snake' ? 0.05 : 0.1;
+            // 2. 랜덤 변주 (기관총 효과 방지)
+            // 매 걸음마다 0.9 ~ 1.1 배속 사이로 미세하게 변화를 줌
+            const randomDetune = 0.9 + Math.random() * 0.2; 
+            source.playbackRate.value = basePitch * randomDetune;
 
-            const bufferSize = audioCtx.sampleRate * duration; 
-            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-            const data = buffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-            const noise = audioCtx.createBufferSource();
-            noise.buffer = buffer;
-
-            const filter = audioCtx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.value = animalConfig.soundBase; 
-
+            // 3. 볼륨 조절
             const gainNode = audioCtx.createGain();
-            gainNode.gain.setValueAtTime(volume, t);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, t + duration);
+            // 뱀은 소리가 작게, 나머지는 적당히
+            const volume = currentAnimal === 'snake' ? 0.2 : 0.6;
+            gainNode.gain.value = volume;
 
-            noise.connect(filter);
-            filter.connect(gainNode);
+            // 4. 소리가 너무 길면 자르기 (짧고 간결하게 '뽀득')
+            // 원본 파일이 길 수 있으므로 0.3초 뒤에 페이드 아웃
+            gainNode.gain.linearRampToValueAtTime(volume, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+
+            source.connect(gainNode);
             gainNode.connect(audioCtx.destination);
-            noise.start();
+            
+            // 재생 시작
+            // 뱀은 연속적이라 시작 위치를 랜덤으로 해서 텍스처를 만듦
+            const offset = currentAnimal === 'snake' ? Math.random() * 2 : 0;
+            source.start(0, offset); 
         }
 
-        // --- 배경 생성 ---
+        // --- 배경 그래픽 ---
         function createSnowBackground() {
             bgCtx.fillStyle = '#FFFFFF';
             bgCtx.fillRect(0, 0, width, height);
@@ -195,7 +210,7 @@
             bgCtx.putImageData(imageData, 0, 0);
         }
 
-        // --- 그리기 함수들 (이전과 동일) ---
+        // --- 그리기 함수들 ---
         function drawHuman(ctx, isLeft) {
             const offset = isLeft ? -12 : 12;
             ctx.translate(0, offset);
@@ -261,35 +276,31 @@
             }
         }
 
-        // --- 통합 이벤트 핸들러 ---
-        
-        // 1. 입력 시작 (MouseDown / TouchStart)
+        // --- 이벤트 핸들러 ---
         function handleStart(e) {
-            initAudio();
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
             
+            // 첫 클릭 시 오버레이 숨김
+            if (overlay.style.opacity !== '0') {
+                overlay.style.opacity = 0;
+                setTimeout(() => overlay.style.display = 'none', 500);
+            }
+
             const point = e.touches ? e.touches[0] : e;
             inputX = point.clientX;
             inputY = point.clientY;
-            
-            // 터치 시작 시점을 마지막 발자국 위치로 갱신하여 점프 방지
             lastStepX = inputX;
             lastStepY = inputY;
-            
             isInteracting = true;
         }
 
-        // 2. 입력 이동 (MouseMove / TouchMove)
         function handleMove(e) {
-            if (!isInteracting && !e.touches) return; // 마우스는 클릭 없어도 움직임 감지
-
-            // 기본 스크롤 동작 방지 (매우 중요)
+            if (!isInteracting && !e.touches) return;
             if(e.cancelable) e.preventDefault();
 
             const point = e.touches ? e.touches[0] : e;
             inputX = point.clientX;
             inputY = point.clientY;
-
-            // 마우스/터치 커서 표시용 플래그
             isInteracting = true;
 
             if (lastStepX === 0 && lastStepY === 0) {
@@ -307,33 +318,27 @@
             if (distance > config.dist) {
                 const angle = Math.atan2(dy, dx);
                 footprints.push(new Footprint(inputX, inputY, angle, isLeftFoot, currentAnimal));
-                if (isAudioStarted) playSnowCrunch();
+                
+                // 진짜 사운드 재생
+                if (isAudioReady) playRealSnowSound();
+
                 lastStepX = inputX;
                 lastStepY = inputY;
                 isLeftFoot = !isLeftFoot;
             }
         }
 
-        // 3. 입력 종료 (MouseUp / TouchEnd)
         function handleEnd() {
-            // 터치가 끝나면 커서(점)를 숨기기 위해 플래그 해제
-            // 마우스의 경우 계속 움직이므로 유지해도 되지만, 모바일 경험 통일을 위해 처리
-            if ('ontouchstart' in window) { 
-                isInteracting = false; 
-            }
-            // 마지막 위치 초기화 (다음 터치 시 발자국 이어지지 않게 끊기)
+            if ('ontouchstart' in window) isInteracting = false; 
             lastStepX = 0;
             lastStepY = 0;
         }
 
-        // --- 이벤트 리스너 등록 ---
-        
-        // PC (Mouse)
+        // --- 이벤트 리스너 ---
         window.addEventListener('mousedown', handleStart);
         window.addEventListener('mousemove', handleMove);
         window.addEventListener('mouseup', handleEnd);
 
-        // Mobile (Touch) - passive: false는 preventDefault 사용을 위해 필수
         window.addEventListener('touchstart', handleStart, { passive: false });
         window.addEventListener('touchmove', handleMove, { passive: false });
         window.addEventListener('touchend', handleEnd);
@@ -351,7 +356,6 @@
                 if (fp.opacity <= 0) footprints.splice(i, 1);
             }
 
-            // 터치 중이거나 마우스가 움직일 때만 커서 표시
             if (isInteracting) {
                 ctx.fillStyle = "rgba(150, 150, 150, 0.5)";
                 ctx.beginPath();
