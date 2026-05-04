@@ -2,371 +2,897 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Real Sound Snow Tracks</title>
+    <title>개미의 여정: 망명자와 노이즈</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background-color: #e0e0e0; 
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: none; 
-            font-family: 'Apple SD Gothic Neo', sans-serif;
-            cursor: none;
+        :root {
+            --font-size: 22pt;
+            --line-height-val: 1.8;
+            --primary-color: #0077ff;
         }
-        canvas { display: block; }
-        
-        #overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6);
+
+        * { box-sizing: border-box; }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background: #000;
+            font-family: 'Noto Serif KR', serif;
+            overflow: hidden;
+        }
+
+        /* ─── 시작 페이지 ─── */
+        #intro-page {
+            position: fixed;
+            inset: 0;
+            z-index: 500;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.6s ease;
+        }
+        #intro-page.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* SVG 컨테이너: 뷰포트에 맞게 축소 */
+        #intro-svg-wrap {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        #intro-svg-wrap svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 이미지 업로드 패널 */
+        #image-upload-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 600;
+            background: rgba(255,255,255,0.95);
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            font-family: 'Noto Serif KR', serif;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transition: opacity 0.4s;
+        }
+        #image-upload-panel label {
+            cursor: pointer;
+            padding: 6px 14px;
+            background: #111;
+            color: white;
+            border-radius: 8px;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        #image-upload-panel label:hover { background: #333; }
+        #image-upload-panel input[type="file"] { display: none; }
+        #upload-status { color: #666; font-size: 12px; }
+        #clear-images-btn {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #666;
+        }
+        #clear-images-btn:hover { border-color: #ff4444; color: #ff4444; }
+
+        /* 빨간 시작 버튼 강조 */
+        #start-button {
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        #start-button:hover { opacity: 0.5; }
+
+        /* ─── 메인 인터랙션 페이지 ─── */
+        #main-page {
+            position: fixed;
+            inset: 0;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+            background: #fdfdfd;
+        }
+        #main-page.visible {
+            display: block;
+            opacity: 1;
+        }
+
+        ::selection { background: transparent; color: inherit; }
+
+        .nav-bar {
+            position: fixed; top: 0; left: 0; width: 100%; height: 85px;
+            background: rgba(255,255,255,0.95);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            color: white;
-            z-index: 10;
-            transition: opacity 0.5s;
-            backdrop-filter: blur(5px);
-            text-align: center;
-        }
-        #loading-text { margin-top: 10px; font-size: 14px; color: #ccc; }
-
-        #controls {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            display: flex;
+            z-index: 100;
+            border-bottom: 1px solid #eee;
             gap: 8px;
-            z-index: 5;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            max-width: 90%;
         }
-        .btn {
-            background: rgba(255, 255, 255, 0.9);
-            border: none;
-            padding: 8px 14px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            color: #555;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: all 0.1s;
+        .nav-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .nav-group { display: flex; align-items: center; gap: 8px; }
+        .nav-btn {
+            padding: 5px 12px; cursor: pointer; border: 1px solid #ccc;
+            background: white; border-radius: 15px; font-size: 12px;
+            font-family: 'Noto Serif KR', serif;
+            transition: 0.2s;
         }
-        .btn:active { transform: scale(0.95); }
-        .btn.active {
-            background: #222;
-            color: white;
-            transform: scale(1.05);
+        .nav-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+        .nav-btn.clear { border-color: #ff4444; color: #ff4444; }
+        .nav-btn.home-btn { border-color: #111; color: #111; }
+        .nav-btn.home-btn:hover { background: #111; color: white; }
+
+        input[type=range] { cursor: pointer; width: 100px; }
+        label { font-size: 12px; font-weight: bold; color: #555; font-family: 'Noto Serif KR', serif; }
+
+        #canvas {
+            position: fixed;
+            top: 0; left: 0;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .page { display: none; position: relative; z-index: 5; }
+        #page1 { display: block; padding: 130px 40px 60px; max-width: 800px; margin: 0 auto; height: 100vh; overflow-y: auto; }
+        #page2 { width: 100vw; height: 100vh; background: transparent; }
+
+        .novel-text {
+            font-size: var(--font-size);
+            line-height: var(--line-height-val);
+            text-align: justify;
+            white-space: pre-wrap;
         }
     </style>
 </head>
 <body>
-    <div id="overlay">
-        <h2 style="margin:0;">화면을 클릭하여 시작</h2>
-        <div id="loading-text">고음질 사운드 로딩 중...</div>
+
+<!-- ══════════════════════════════════════════
+     시작 페이지 (SVG + 이미지 일괄 업로드)
+══════════════════════════════════════════ -->
+<div id="intro-page">
+    <div id="intro-svg-wrap">
+        <svg id="main-svg" viewBox="0 0 1440 1024" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- 적용된 새로운 SVG 파트 -->
+            <g clip-path="url(#clip0_2093_49)">
+                <rect width="1440" height="1024" fill="white"/>
+                <rect x="728.465" y="648.659" width="29.3199" height="15.9927" transform="rotate(174.384 728.465 648.659)" fill="#C4C4C4"/>
+                <rect x="591.616" y="636.606" width="29.3199" height="15.9927" transform="rotate(-6.97309 591.616 636.606)" fill="#C4C4C4"/>
+                <rect x="435.173" y="563.182" width="29.3199" height="15.9927" transform="rotate(-110.616 435.173 563.182)" fill="#C4C4C4"/>
+                <rect x="640.487" y="609.103" width="29.3199" height="15.9927" transform="rotate(5.76035 640.487 609.103)" fill="#C4C4C4"/>
+                <rect x="543.34" y="634.185" width="29.3199" height="15.9927" transform="rotate(-9.5213 543.34 634.185)" fill="#C4C4C4"/>
+                <rect x="511.885" y="628.221" width="29.3199" height="15.9927" transform="rotate(77.9236 511.885 628.221)" fill="#C4C4C4"/>
+                <rect x="479.874" y="551.998" width="29.3199" height="15.9927" transform="rotate(80.2903 479.874 551.998)" fill="#C4C4C4"/>
+                <rect x="759.921" y="630.491" width="29.3199" height="15.9927" transform="rotate(152.717 759.921 630.491)" fill="#C4C4C4"/>
+                <rect x="563.277" y="648.121" width="29.3199" height="15.9927" transform="rotate(-18.7519 563.277 648.121)" fill="#C4C4C4"/>
+                <rect x="786.614" y="633.611" width="29.3199" height="15.9927" transform="rotate(168.356 786.614 633.611)" fill="#C4C4C4"/>
+                <rect x="536.794" y="650.209" width="29.3199" height="15.9927" transform="rotate(-13.0014 536.794 650.209)" fill="#C4C4C4"/>
+                <rect x="606.065" y="620.708" width="29.3199" height="15.9927" transform="rotate(-15.907 606.065 620.708)" fill="#C4C4C4"/>
+                <rect x="454.971" y="434.184" width="29.3199" height="15.9927" transform="rotate(-16.3597 454.971 434.184)" fill="#C4C4C4"/>
+                <rect x="408.07" y="447.392" width="29.3199" height="15.9927" transform="rotate(35.7318 408.07 447.392)" fill="#C4C4C4"/>
+                <rect x="493.197" y="602.037" width="29.3199" height="15.9927" transform="rotate(56.7097 493.197 602.037)" fill="#C4C4C4"/>
+                <rect x="459.506" y="521.919" width="29.3199" height="15.9927" transform="rotate(58.623 459.506 521.919)" fill="#C4C4C4"/>
+                <rect x="837.15" y="393.388" width="29.3199" height="15.9927" transform="rotate(11.7698 837.15 393.388)" fill="#C4C4C4"/>
+                <rect x="1020.45" y="503.291" width="29.3199" height="15.9927" transform="rotate(73.7076 1020.45 503.291)" fill="#C4C4C4"/>
+                <rect x="734.135" y="513.911" width="29.3199" height="15.9927" transform="rotate(-121.292 734.135 513.911)" fill="#C4C4C4"/>
+                <rect x="806.811" y="398.429" width="29.3199" height="15.9927" transform="rotate(-3.53846 806.811 398.429)" fill="#C4C4C4"/>
+                <rect x="982.668" y="449.846" width="29.3199" height="15.9927" transform="rotate(63.6603 982.668 449.846)" fill="#C4C4C4"/>
+                <rect x="617.409" y="385.733" width="29.3199" height="15.9927" transform="rotate(-153.601 617.409 385.733)" fill="#FF0000"/>
+                <rect x="799.733" y="608.973" width="29.3199" height="15.9927" transform="rotate(-153.601 799.733 608.973)" fill="#C4C4C4"/>
+                <rect x="655.28" y="389.45" width="29.3199" height="15.9927" transform="rotate(179.856 655.28 389.45)" fill="#C4C4C4"/>
+                <rect x="837.604" y="612.689" width="29.3199" height="15.9927" transform="rotate(179.856 837.604 612.689)" fill="#C4C4C4"/>
+                <rect x="686.659" y="394.822" width="29.3199" height="15.9927" transform="rotate(-173.098 686.659 394.822)" fill="#C4C4C4"/>
+                <rect x="868.983" y="618.062" width="29.3199" height="15.9927" transform="rotate(-173.098 868.983 618.062)" fill="#C4C4C4"/>
+                <rect x="997.142" y="473.575" width="29.3199" height="15.9927" transform="rotate(46.9414 997.142 473.575)" fill="#C4C4C4"/>
+                <rect x="743.38" y="536.651" width="29.3199" height="15.9927" transform="rotate(-103.427 743.38 536.651)" fill="#C4C4C4"/>
+                <rect x="898.49" y="605.519" width="29.3199" height="15.9927" transform="rotate(169.557 898.49 605.519)" fill="#C4C4C4"/>
+                <rect width="29.3199" height="15.9927" transform="matrix(-0.951219 -0.308517 -0.308517 0.951219 880.012 614.145)" fill="#C4C4C4"/>
+                <rect x="665.098" y="407.63" width="29.3199" height="15.9927" transform="rotate(-25.9859 665.098 407.63)" fill="#C4C4C4"/>
+                <rect x="638.255" y="410.397" width="29.3199" height="15.9927" transform="rotate(-4.56703 638.255 410.397)" fill="#C4C4C4"/>
+                <rect x="766.457" y="559.682" width="29.3199" height="15.9927" transform="rotate(-142.271 766.457 559.682)" fill="#C4C4C4"/>
+                <rect x="931.958" y="613.767" width="29.3199" height="15.9927" transform="rotate(165.194 931.958 613.767)" fill="#C4C4C4"/>
+                <rect x="818.522" y="630.604" width="29.3199" height="15.9927" transform="rotate(-157.403 818.522 630.604)" fill="#C4C4C4"/>
+                <rect x="774.703" y="583.357" width="29.3199" height="15.9927" transform="rotate(-114.942 774.703 583.357)" fill="#C4C4C4"/>
+                <rect x="834.577" y="598.517" width="29.3199" height="15.9927" transform="rotate(170.029 834.577 598.517)" fill="#C4C4C4"/>
+                <rect x="862.65" y="604.447" width="29.3199" height="15.9927" transform="rotate(-158.191 862.65 604.447)" fill="#C4C4C4"/>
+                <rect width="29.3199" height="15.9927" transform="matrix(-0.995822 0.0913128 0.0913128 0.995822 848.421 608.583)" fill="#C4C4C4"/>
+                <rect x="780.881" y="601.584" width="29.3199" height="15.9927" transform="rotate(150.729 780.881 601.584)" fill="#C4C4C4"/>
+                <rect x="782.533" y="388.479" width="29.3199" height="15.9927" transform="rotate(15.4519 782.533 388.479)" fill="#C4C4C4"/>
+                <rect x="969.32" y="427.754" width="29.3199" height="15.9927" transform="rotate(78.6807 969.32 427.754)" fill="#C4C4C4"/>
+                <rect x="928.208" y="609.173" width="29.3199" height="15.9927" transform="rotate(-171.453 928.208 609.173)" fill="#C4C4C4"/>
+                <rect width="29.3199" height="15.9927" transform="matrix(-0.999842 0.0178086 0.0178086 0.999842 909.176 609.505)" fill="#C4C4C4"/>
+                <rect x="1044.74" y="615.465" width="29.3199" height="15.9927" transform="rotate(166.06 1044.74 615.465)" fill="#C4C4C4"/>
+                <rect x="753.439" y="391.752" width="29.3199" height="15.9927" transform="rotate(5.08399 753.439 391.752)" fill="#C4C4C4"/>
+                <rect x="949.915" y="399.327" width="29.3199" height="15.9927" transform="rotate(45.3416 949.915 399.327)" fill="#C4C4C4"/>
+                <rect x="957.997" y="614.758" width="29.3199" height="15.9927" transform="rotate(-155.905 957.997 614.758)" fill="#C4C4C4"/>
+                <rect width="29.3199" height="15.9927" transform="matrix(-0.958479 0.285164 0.285164 0.958479 939.44 607.871)" fill="#C4C4C4"/>
+                <rect width="29.3199" height="15.9927" transform="matrix(-0.958479 0.285164 0.285164 0.958479 1025.73 611.038)" fill="#C4C4C4"/>
+                <rect width="29.3199" height="15.9927" transform="matrix(-0.99855 0.0538436 0.0538436 0.99855 972.057 611.096)" fill="#C4C4C4"/>
+                <rect width="29.3199" height="15.9927" transform="matrix(-0.9022 0.431318 0.431318 0.9022 893.943 623.604)" fill="#C4C4C4"/>
+                <rect width="29.3199" height="15.9927" transform="matrix(-0.99855 0.0538436 0.0538436 0.99855 1058.34 614.263)" fill="#C4C4C4"/>
+                <rect x="1067.77" y="593.497" width="29.3199" height="15.9927" transform="rotate(126.822 1067.77 593.497)" fill="#C4C4C4"/>
+                <rect x="692.258" y="419.082" width="29.3199" height="15.9927" transform="rotate(-51.5282 692.258 419.082)" fill="#C4C4C4"/>
+                <rect x="864.727" y="395.025" width="29.3199" height="15.9927" transform="rotate(10.8999 864.727 395.025)" fill="#C4C4C4"/>
+                <rect x="1011.42" y="623.45" width="29.3199" height="15.9927" transform="rotate(-149 1011.42 623.45)" fill="#C4C4C4"/>
+                <rect x="1031.79" y="532.416" width="29.3199" height="15.9927" transform="rotate(54.6242 1031.79 532.416)" fill="#C4C4C4"/>
+                <rect x="712.601" y="486.046" width="29.3199" height="15.9927" transform="rotate(-101.307 712.601 486.046)" fill="#C4C4C4"/>
+                <rect x="725.316" y="386.842" width="29.3199" height="15.9927" transform="rotate(6.89458 725.316 386.842)" fill="#C4C4C4"/>
+                <rect x="989.262" y="613.936" width="29.3199" height="15.9927" transform="rotate(-178.19 989.262 613.936)" fill="#C4C4C4"/>
+                <rect x="1000.72" y="635.397" width="29.3199" height="15.9927" transform="rotate(-166.201 1000.72 635.397)" fill="#C4C4C4"/>
+                <rect x="978.252" y="635.187" width="29.3199" height="15.9927" transform="rotate(149.401 978.252 635.187)" fill="#C4C4C4"/>
+                <rect x="1087.01" y="638.564" width="29.3199" height="15.9927" transform="rotate(-166.201 1087.01 638.564)" fill="#C4C4C4"/>
+                <rect x="1044.2" y="557.853" width="29.3199" height="15.9927" transform="rotate(41.0135 1044.2 557.853)" fill="#C4C4C4"/>
+                <rect x="706.791" y="457.244" width="29.3199" height="15.9927" transform="rotate(-126.383 706.791 457.244)" fill="#C4C4C4"/>
+                <rect x="918.09" y="395.644" width="29.3199" height="15.9927" transform="rotate(-9.46637 918.09 395.644)" fill="#C4C4C4"/>
+                <rect x="693.077" y="387.231" width="29.3199" height="15.9927" transform="rotate(-12.3331 693.077 387.231)" fill="#C4C4C4"/>
+                <rect x="891.398" y="396.661" width="29.3199" height="15.9927" transform="rotate(1.08373 891.398 396.661)" fill="#C4C4C4"/>
+                <rect x="694.523" y="650.499" width="29.3199" height="15.9927" transform="rotate(176.716 694.523 650.499)" fill="#C4C4C4"/>
+                <rect x="616.981" y="630.538" width="29.3199" height="15.9927" transform="rotate(-4.64112 616.981 630.538)" fill="#C4C4C4"/>
+                <rect x="420.805" y="536.503" width="29.3199" height="15.9927" transform="rotate(-120.478 420.805 536.503)" fill="#C4C4C4"/>
+                <rect x="672.47" y="604.993" width="29.3199" height="15.9927" transform="rotate(8.09232 672.47 604.993)" fill="#C4C4C4"/>
+                <rect x="581.646" y="623.311" width="29.3199" height="15.9927" transform="rotate(8.09232 581.646 623.311)" fill="#C4C4C4"/>
+                <rect x="537.054" y="671.553" width="29.3199" height="15.9927" transform="rotate(173.334 537.054 671.553)" fill="#C4C4C4"/>
+                <rect x="456.744" y="588.233" width="29.3199" height="15.9927" transform="rotate(-125.183 456.744 588.233)" fill="#C4C4C4"/>
+                <rect x="484.206" y="579.839" width="29.3199" height="15.9927" transform="rotate(82.6223 484.206 579.839)" fill="#C4C4C4"/>
+                <rect x="564.96" y="680.587" width="29.3199" height="15.9927" transform="rotate(-169.581 564.96 680.587)" fill="#C4C4C4"/>
+                <rect x="754.818" y="598.764" width="29.3199" height="15.9927" transform="rotate(9.06111 754.818 598.764)" fill="#C4C4C4"/>
+                <rect x="362.707" y="428.493" width="29.3199" height="15.9927" transform="rotate(-149.765 362.707 428.493)" fill="#C4C4C4"/>
+                <rect x="340.269" y="415.613" width="29.3199" height="15.9927" transform="rotate(179.057 340.269 415.613)" fill="#C4C4C4"/>
+                <rect x="240.964" y="388.388" width="29.3199" height="15.9927" transform="rotate(175.53 240.964 388.388)" fill="#C4C4C4"/>
+                <rect x="457.633" y="618.358" width="29.3199" height="15.9927" transform="rotate(-108.098 457.633 618.358)" fill="#C4C4C4"/>
+                <rect x="434.309" y="470.302" width="29.3199" height="15.9927" transform="rotate(80.8866 434.309 470.302)" fill="#C4C4C4"/>
+                <rect x="486.064" y="423.113" width="29.3199" height="15.9927" transform="rotate(-2.17453 486.064 423.113)" fill="#C4C4C4"/>
+                <rect x="389.513" y="437.726" width="29.3199" height="15.9927" transform="rotate(-16.9221 389.513 437.726)" fill="#C4C4C4"/>
+                <rect x="541.769" y="419.572" width="29.3199" height="15.9927" transform="rotate(0.226922 541.769 419.572)" fill="#C4C4C4"/>
+                <rect x="570.342" y="420.621" width="29.3199" height="15.9927" transform="rotate(-17.0838 570.342 420.621)" fill="#C4C4C4"/>
+                <rect x="668.449" y="654.177" width="29.3199" height="15.9927" transform="rotate(159.416 668.449 654.177)" fill="#C4C4C4"/>
+                <rect x="639.891" y="629.921" width="29.3199" height="15.9927" transform="rotate(-21.9411 639.891 629.921)" fill="#C4C4C4"/>
+                <rect x="407.814" y="509.661" width="29.3199" height="15.9927" transform="rotate(-125.584 407.814 509.661)" fill="#C4C4C4"/>
+                <rect x="702.383" y="607.878" width="29.3199" height="15.9927" transform="rotate(-23.8254 702.383 607.878)" fill="#C4C4C4"/>
+                <rect x="515.724" y="421.418" width="29.3199" height="15.9927" transform="rotate(13.0879 515.724 421.418)" fill="#C4C4C4"/>
+                <rect x="425.719" y="431.027" width="29.3199" height="15.9927" transform="rotate(13.0879 425.719 431.027)" fill="#C4C4C4"/>
+                <rect x="513.066" y="645.243" width="29.3199" height="15.9927" transform="rotate(-17.9802 513.066 645.243)" fill="#C4C4C4"/>
+                <rect x="436.223" y="500.577" width="29.3199" height="15.9927" transform="rotate(48.9688 436.223 500.577)" fill="#C4C4C4"/>
+                <rect x="602.097" y="670.492" width="29.3199" height="15.9927" transform="rotate(172.563 602.097 670.492)" fill="#C4C4C4"/>
+                <rect x="715.987" y="612.961" width="29.3199" height="15.9927" transform="rotate(-8.79417 715.987 612.961)" fill="#C4C4C4"/>
+                <rect x="378.439" y="452.373" width="29.3199" height="15.9927" transform="rotate(-125.786 378.439 452.373)" fill="#C4C4C4"/>
+                <rect x="477.387" y="647.151" width="29.3199" height="15.9927" transform="rotate(-125.954 477.387 647.151)" fill="#C4C4C4"/>
+                <rect x="607.135" y="409.753" width="29.3199" height="15.9927" transform="rotate(11.4411 607.135 409.753)" fill="#C4C4C4"/>
+                <rect x="636.657" y="665.318" width="29.3199" height="15.9927" transform="rotate(165.23 636.657 665.318)" fill="#C4C4C4"/>
+                <rect x="668.707" y="620.038" width="29.3199" height="15.9927" transform="rotate(0.622789 668.707 620.038)" fill="#C4C4C4"/>
+                <rect x="384.936" y="479.359" width="29.3199" height="15.9927" transform="rotate(-100.547 384.936 479.359)" fill="#C4C4C4"/>
+                <rect x="498.433" y="675.048" width="29.3199" height="15.9927" transform="rotate(-133.287 498.433 675.048)" fill="#C4C4C4"/>
+                <rect x="273.079" y="392.08" width="29.3199" height="15.9927" transform="rotate(-172.494 273.079 392.08)" fill="#C4C4C4"/>
+                <rect x="172.453" y="369.034" width="29.3199" height="15.9927" transform="rotate(-176.022 172.453 369.034)" fill="#C4C4C4"/>
+                <rect x="299.311" y="410.718" width="29.3199" height="15.9927" transform="rotate(-142.48 299.311 410.718)" fill="#C4C4C4"/>
+                <rect x="199.783" y="386.022" width="29.3199" height="15.9927" transform="rotate(-146.008 199.783 386.022)" fill="#C4C4C4"/>
+                <rect x="115.37" y="644.946" width="29.3199" height="15.9927" transform="rotate(36.2666 115.37 644.946)" fill="#C4C4C4"/>
+                <rect x="742.148" y="22.7178" width="29.3199" height="15.9927" transform="rotate(-2.11329 742.148 22.7178)" fill="#C4C4C4"/>
+                <rect x="1410.17" y="441.94" width="29.3199" height="15.9927" transform="rotate(45.3212 1410.17 441.94)" fill="#C4C4C4"/>
+                <rect x="202.062" y="76.8398" width="29.3199" height="15.9927" transform="rotate(170.434 202.062 76.8398)" fill="#C4C4C4"/>
+                <rect x="425.722" y="1011.35" width="29.3199" height="15.9927" transform="rotate(170.434 425.722 1011.35)" fill="#C4C4C4"/>
+                <rect x="1192.96" y="684.766" width="29.3199" height="15.9927" transform="rotate(26.7715 1192.96 684.766)" fill="#C4C4C4"/>
+                <rect x="1287.49" y="748" width="29.3199" height="15.9927" transform="rotate(8.96269 1287.49 748)" fill="#C4C4C4"/>
+                <rect x="168.013" y="739.792" width="29.3199" height="15.9927" transform="rotate(36.2666 168.013 739.792)" fill="#C4C4C4"/>
+                <rect x="1186.42" y="38.0049" width="29.3199" height="15.9927" transform="rotate(35.1653 1186.42 38.0049)" fill="#C4C4C4"/>
+                <rect x="1263.73" y="375.607" width="29.3199" height="15.9927" transform="rotate(-2.11329 1263.73 375.607)" fill="#C4C4C4"/>
+                <rect x="340.555" y="-4.79834" width="29.3199" height="15.9927" transform="rotate(123 340.555 -4.79834)" fill="#C4C4C4"/>
+                <rect x="564.216" y="929.71" width="29.3199" height="15.9927" transform="rotate(123 564.216 929.71)" fill="#C4C4C4"/>
+                <rect x="1096.78" y="952.063" width="29.3199" height="15.9927" transform="rotate(64.4731 1096.78 952.063)" fill="#C4C4C4"/>
+                <rect x="580.362" y="886.093" width="29.3199" height="15.9927" transform="rotate(101.153 580.362 886.093)" fill="#C4C4C4"/>
+                <rect x="1068.01" y="915.521" width="29.3199" height="15.9927" transform="rotate(42.6261 1068.01 915.521)" fill="#C4C4C4"/>
+                <rect x="603.23" y="854.542" width="29.3199" height="15.9927" transform="rotate(136.194 603.23 854.542)" fill="#C4C4C4"/>
+                <rect x="1053.04" y="879.543" width="29.3199" height="15.9927" transform="rotate(77.6675 1053.04 879.543)" fill="#C4C4C4"/>
+                <rect x="237.504" y="798.859" width="29.3199" height="15.9927" transform="rotate(36.2666 237.504 798.859)" fill="#C4C4C4"/>
+                <rect x="1354.88" y="378.766" width="29.3199" height="15.9927" transform="rotate(-2.11329 1354.88 378.766)" fill="#C4C4C4"/>
+                <rect x="285.544" y="67.9458" width="29.3199" height="15.9927" transform="rotate(123 285.544 67.9458)" fill="#C4C4C4"/>
+                <rect x="509.205" y="1002.45" width="29.3199" height="15.9927" transform="rotate(123 509.205 1002.45)" fill="#C4C4C4"/>
+                <rect x="90.6806" y="627.105" width="29.3199" height="15.9927" transform="rotate(46.1194 90.6806 627.105)" fill="#C4C4C4"/>
+                <rect x="711.717" y="24.061" width="29.3199" height="15.9927" transform="rotate(7.73945 711.717 24.061)" fill="#C4C4C4"/>
+                <rect x="1388.6" y="420.436" width="29.3199" height="15.9927" transform="rotate(55.1739 1388.6 420.436)" fill="#C4C4C4"/>
+                <rect x="232.062" y="71.561" width="29.3199" height="15.9927" transform="rotate(-179.713 232.062 71.561)" fill="#C4C4C4"/>
+                <rect x="455.722" y="1006.07" width="29.3199" height="15.9927" transform="rotate(-179.713 455.722 1006.07)" fill="#C4C4C4"/>
+                <rect x="1363.46" y="428.103" width="29.3199" height="15.9927" transform="rotate(27.3185 1363.46 428.103)" fill="#C4C4C4"/>
+                <rect x="240.247" y="46.5908" width="29.3199" height="15.9927" transform="rotate(152.432 240.247 46.5908)" fill="#C4C4C4"/>
+                <rect x="463.908" y="981.1" width="29.3199" height="15.9927" transform="rotate(152.432 463.908 981.1)" fill="#C4C4C4"/>
+                <rect x="1165.66" y="671.242" width="29.3199" height="15.9927" transform="rotate(36.6242 1165.66 671.242)" fill="#C4C4C4"/>
+                <rect x="26.7952" y="275.048" width="29.3199" height="15.9927" transform="rotate(-150.637 26.7952 275.048)" fill="#C4C4C4"/>
+                <rect x="143.324" y="721.951" width="29.3199" height="15.9927" transform="rotate(46.1194 143.324 721.951)" fill="#C4C4C4"/>
+                <rect x="1161.39" y="20.6421" width="29.3199" height="15.9927" transform="rotate(45.0181 1161.39 20.6421)" fill="#C4C4C4"/>
+                <rect x="184.073" y="153.978" width="29.3199" height="15.9927" transform="rotate(132.853 184.073 153.978)" fill="#C4C4C4"/>
+                <rect x="216.618" y="782.982" width="29.3199" height="15.9927" transform="rotate(57.3763 216.618 782.982)" fill="#C4C4C4"/>
+                <rect x="1328.65" y="379.287" width="29.3199" height="15.9927" transform="rotate(18.9964 1328.65 379.287)" fill="#C4C4C4"/>
+                <rect x="300.206" y="46.1895" width="29.3199" height="15.9927" transform="rotate(144.109 300.206 46.1895)" fill="#C4C4C4"/>
+                <rect x="523.866" y="980.698" width="29.3199" height="15.9927" transform="rotate(144.109 523.866 980.698)" fill="#C4C4C4"/>
+                <rect x="1119.21" y="1013.1" width="29.3199" height="15.9927" transform="rotate(85.5827 1119.21 1013.1)" fill="#C4C4C4"/>
+                <rect x="77.3548" y="600.292" width="29.3199" height="15.9927" transform="rotate(65.1097 77.3548 600.292)" fill="#C4C4C4"/>
+                <rect x="684.623" y="11.3154" width="29.3199" height="15.9927" transform="rotate(26.7298 684.623 11.3154)" fill="#C4C4C4"/>
+                <rect x="1148.1" y="646.994" width="29.3199" height="15.9927" transform="rotate(55.6145 1148.1 646.994)" fill="#C4C4C4"/>
+                <rect x="46.7141" y="296.916" width="29.3199" height="15.9927" transform="rotate(-131.647 46.7141 296.916)" fill="#C4C4C4"/>
+                <rect x="129.999" y="695.138" width="29.3199" height="15.9927" transform="rotate(65.1097 129.999 695.138)" fill="#C4C4C4"/>
+                <rect x="1147.55" y="-5.91064" width="29.3199" height="15.9927" transform="rotate(64.0084 1147.55 -5.91064)" fill="#C4C4C4"/>
+                <rect x="210.083" y="139.146" width="29.3199" height="15.9927" transform="rotate(151.843 210.083 139.146)" fill="#C4C4C4"/>
+                <rect x="198.547" y="754.652" width="29.3199" height="15.9927" transform="rotate(47.3327 198.547 754.652)" fill="#C4C4C4"/>
+                <rect x="1285.55" y="49" width="29.3199" height="15.9927" transform="rotate(46.2314 1285.55 49)" fill="#C4C4C4"/>
+                <rect x="1296.89" y="368.299" width="29.3199" height="15.9927" transform="rotate(8.95278 1296.89 368.299)" fill="#C4C4C4"/>
+                <rect x="327.459" y="26.5332" width="29.3199" height="15.9927" transform="rotate(134.066 327.459 26.5332)" fill="#C4C4C4"/>
+                <rect x="551.119" y="961.042" width="29.3199" height="15.9927" transform="rotate(134.066 551.119 961.042)" fill="#C4C4C4"/>
+                <rect x="1116.67" y="979.592" width="29.3199" height="15.9927" transform="rotate(75.5391 1116.67 979.592)" fill="#C4C4C4"/>
+                <rect x="65.6004" y="572.355" width="29.3199" height="15.9927" transform="rotate(80.6579 65.6004 572.355)" fill="#C4C4C4"/>
+                <rect x="658.064" y="-3.28613" width="29.3199" height="15.9927" transform="rotate(42.278 658.064 -3.28613)" fill="#C4C4C4"/>
+                <rect x="1131.89" y="621.38" width="29.3199" height="15.9927" transform="rotate(71.1628 1131.89 621.38)" fill="#C4C4C4"/>
+                <rect x="66.0236" y="320.277" width="29.3199" height="15.9927" transform="rotate(-116.099 66.0236 320.277)" fill="#C4C4C4"/>
+                <rect x="118.244" y="667.201" width="29.3199" height="15.9927" transform="rotate(80.6579 118.244 667.201)" fill="#C4C4C4"/>
+                <rect x="758.219" y="38.3794" width="29.3199" height="15.9927" transform="rotate(42.278 758.219 38.3794)" fill="#C4C4C4"/>
+                <rect x="1429.97" y="384.939" width="29.3199" height="15.9927" transform="rotate(42.278 1429.97 384.939)" fill="#C4C4C4"/>
+                <rect x="237.304" y="125.818" width="29.3199" height="15.9927" transform="rotate(167.391 237.304 125.818)" fill="#C4C4C4"/>
+                <rect x="1409.51" y="464.371" width="29.3199" height="15.9927" transform="rotate(89.7125 1409.51 464.371)" fill="#C4C4C4"/>
+                <rect x="184.094" y="63.3945" width="29.3199" height="15.9927" transform="rotate(-145.174 184.094 63.3945)" fill="#C4C4C4"/>
+                <rect x="407.755" y="997.903" width="29.3199" height="15.9927" transform="rotate(-145.174 407.755 997.903)" fill="#C4C4C4"/>
+                <rect x="1199.46" y="706.243" width="29.3199" height="15.9927" transform="rotate(71.1628 1199.46 706.243)" fill="#C4C4C4"/>
+                <rect x="1300.26" y="766.458" width="29.3199" height="15.9927" transform="rotate(53.354 1300.26 766.458)" fill="#C4C4C4"/>
+                <rect x="187.487" y="722.185" width="29.3199" height="15.9927" transform="rotate(80.6579 187.487 722.185)" fill="#C4C4C4"/>
+                <rect x="1205.55" y="20.0269" width="29.3199" height="15.9927" transform="rotate(79.5566 1205.55 20.0269)" fill="#C4C4C4"/>
+                <rect x="1268.06" y="349.714" width="29.3199" height="15.9927" transform="rotate(42.278 1268.06 349.714)" fill="#C4C4C4"/>
+                <rect x="1276.83" y="749.05" width="29.3199" height="15.9927" transform="rotate(71.1628 1276.83 749.05)" fill="#C4C4C4"/>
+                <rect x="1387" y="783.552" width="29.3199" height="15.9927" transform="rotate(53.354 1387 783.552)" fill="#C4C4C4"/>
+                <rect x="1314.14" y="799" width="29.3199" height="15.9927" transform="rotate(71.1628 1314.14 799)" fill="#C4C4C4"/>
+                <rect x="1449.22" y="827.783" width="29.3199" height="15.9927" transform="rotate(53.354 1449.22 827.783)" fill="#C4C4C4"/>
+                <rect x="240.131" y="817.031" width="29.3199" height="15.9927" transform="rotate(80.6579 240.131 817.031)" fill="#C4C4C4"/>
+                <rect x="1368.22" y="391.38" width="29.3199" height="15.9927" transform="rotate(42.278 1368.22 391.38)" fill="#C4C4C4"/>
+                <rect x="267.551" y="71.604" width="29.3199" height="15.9927" transform="rotate(167.391 267.551 71.604)" fill="#C4C4C4"/>
+                <rect x="491.211" y="1006.11" width="29.3199" height="15.9927" transform="rotate(167.391 491.211 1006.11)" fill="#C4C4C4"/>
+                <rect x="34.5443" y="543.021" width="29.3199" height="15.9927" transform="rotate(40.1915 34.5443 543.021)" fill="#C4C4C4"/>
+                <rect x="615.506" y="-7" width="29.3199" height="15.9927" transform="rotate(1.81154 615.506 -7)" fill="#C4C4C4"/>
+                <rect x="1096.42" y="597.57" width="29.3199" height="15.9927" transform="rotate(30.6963 1096.42 597.57)" fill="#C4C4C4"/>
+                <rect x="194.133" y="328.548" width="29.3199" height="15.9927" transform="rotate(-153.038 194.133 328.548)" fill="#C4C4C4"/>
+                <rect x="104.218" y="339.413" width="29.3199" height="15.9927" transform="rotate(-156.565 104.218 339.413)" fill="#C4C4C4"/>
+                <rect x="46.7969" y="258.644" width="29.3199" height="15.9927" transform="rotate(-115.506 46.7969 258.644)" fill="#C4C4C4"/>
+                <rect x="156.431" y="692.85" width="29.3199" height="15.9927" transform="rotate(40.1915 156.431 692.85)" fill="#C4C4C4"/>
+                <rect x="1173.93" y="-8.70557" width="29.3199" height="15.9927" transform="rotate(39.0902 1173.93 -8.70557)" fill="#C4C4C4"/>
+                <rect x="1225.51" y="346" width="29.3199" height="15.9927" transform="rotate(1.81154 1225.51 346)" fill="#C4C4C4"/>
+                <rect x="1443.18" y="495.709" width="29.3199" height="15.9927" transform="rotate(49.246 1443.18 495.709)" fill="#C4C4C4"/>
+                <rect x="139.09" y="72.916" width="29.3199" height="15.9927" transform="rotate(174.359 139.09 72.916)" fill="#C4C4C4"/>
+                <rect x="362.75" y="1007.42" width="29.3199" height="15.9927" transform="rotate(174.359 362.75 1007.42)" fill="#C4C4C4"/>
+                <rect x="1241.36" y="725.24" width="29.3199" height="15.9927" transform="rotate(30.6963 1241.36 725.24)" fill="#C4C4C4"/>
+                <rect x="1345.95" y="771.732" width="29.3199" height="15.9927" transform="rotate(12.8875 1345.95 771.732)" fill="#C4C4C4"/>
+                <rect x="1408.38" y="815.895" width="29.3199" height="15.9927" transform="rotate(12.8875 1408.38 815.895)" fill="#C4C4C4"/>
+                <rect x="13.6675" y="520" width="29.3199" height="15.9927" transform="rotate(58.7165 13.6675 520)" fill="#C4C4C4"/>
+                <rect x="927.055" y="422" width="27.6008" height="15.055" transform="rotate(7.84681 927.055 422)" fill="#C4C4C4"/>
+                <rect x="893.151" y="446.597" width="27.6008" height="15.055" transform="rotate(-50.7033 893.151 446.597)" fill="#C4C4C4"/>
+                <rect x="877.652" y="471.046" width="27.6008" height="15.055" transform="rotate(-68.2408 877.652 471.046)" fill="#C4C4C4"/>
+                <rect x="881.76" y="499.96" width="27.6008" height="15.055" transform="rotate(-92.5592 881.76 499.96)" fill="#C4C4C4"/>
+                <rect x="878.769" y="523.93" width="27.6008" height="15.055" transform="rotate(-78.4187 878.769 523.93)" fill="#C4C4C4"/>
+                <rect x="884.804" y="549.934" width="27.6008" height="15.055" transform="rotate(-97.7718 884.804 549.934)" fill="#C4C4C4"/>
+                <rect x="903.475" y="572.474" width="27.6008" height="15.055" transform="rotate(-130.887 903.475 572.474)" fill="#C4C4C4"/>
+                <rect x="928.376" y="585.058" width="27.6008" height="15.055" transform="rotate(-162.872 928.376 585.058)" fill="#C4C4C4"/>
+                <rect x="955.611" y="595.918" width="27.6008" height="15.055" transform="rotate(-153.084 955.611 595.918)" fill="#C4C4C4"/>
+                <rect x="572.719" y="467.417" width="27.6008" height="15.055" transform="rotate(59.771 572.719 467.417)" fill="#C4C4C4"/>
+                <rect x="683.333" y="453.39" width="27.6008" height="15.055" transform="rotate(59.771 683.333 453.39)" fill="#C4C4C4"/>
+                <rect x="613.249" y="581.803" width="27.6008" height="15.055" transform="rotate(105.256 613.249 581.803)" fill="#C4C4C4"/>
+                <rect x="606.617" y="550.044" width="27.6008" height="15.055" transform="rotate(79.9548 606.617 550.044)" fill="#C4C4C4"/>
+                <rect x="540.463" y="458.604" width="27.6008" height="15.055" transform="rotate(7.81822 540.463 458.604)" fill="#C4C4C4"/>
+                <rect x="652.966" y="436" width="27.6008" height="15.055" transform="rotate(14.9397 652.966 436)" fill="#C4C4C4"/>
+                <rect x="582.665" y="525.733" width="27.6008" height="15.055" transform="rotate(49.4824 582.665 525.733)" fill="#C4C4C4"/>
+                <rect x="549.19" y="545.673" width="27.6008" height="15.055" transform="rotate(179.965 549.19 545.673)" fill="#C4C4C4"/>
+                <rect x="656.71" y="533.854" width="27.6008" height="15.055" transform="rotate(179.965 656.71 533.854)" fill="#C4C4C4"/>
+                <rect x="567.747" y="625.623" width="27.6008" height="15.055" transform="rotate(177.148 567.747 625.623)" fill="#C4C4C4"/>
+                <rect x="512.517" y="463.133" width="27.6008" height="15.055" transform="rotate(-8.9547 512.517 463.133)" fill="#C4C4C4"/>
+                <rect x="616.184" y="443.421" width="27.6008" height="15.055" transform="rotate(-8.9547 616.184 443.421)" fill="#C4C4C4"/>
+                <rect x="585.207" y="532.053" width="27.6008" height="15.055" transform="rotate(156.045 585.207 532.053)" fill="#C4C4C4"/>
+                <rect x="692.728" y="520.233" width="27.6008" height="15.055" transform="rotate(156.045 692.728 520.233)" fill="#C4C4C4"/>
+                <rect x="493" y="488.683" width="27.6008" height="15.055" transform="rotate(-63.3468 493 488.683)" fill="#C4C4C4"/>
+                <rect x="596.667" y="468.97" width="27.6008" height="15.055" transform="rotate(-63.3468 596.667 468.97)" fill="#C4C4C4"/>
+                <rect x="590.054" y="495.362" width="27.6008" height="15.055" transform="rotate(87.5971 590.054 495.362)" fill="#C4C4C4"/>
+                <rect x="697.574" y="483.542" width="27.6008" height="15.055" transform="rotate(87.5971 697.574 483.542)" fill="#C4C4C4"/>
+                <rect x="596.711" y="610.454" width="27.6008" height="15.055" transform="rotate(141.459 596.711 610.454)" fill="#C4C4C4"/>
+                <rect x="503.745" y="543.309" width="27.6008" height="15.055" transform="rotate(-77.4029 503.745 543.309)" fill="#C4C4C4"/>
+                <rect x="607.412" y="523.597" width="27.6008" height="15.055" transform="rotate(-77.4029 607.412 523.597)" fill="#C4C4C4"/>
+                <rect x="512.017" y="595.058" width="27.6008" height="15.055" transform="rotate(-77.4029 512.017 595.058)" fill="#C4C4C4"/>
+                <rect x="615.684" y="575.346" width="27.6008" height="15.055" transform="rotate(-77.4029 615.684 575.346)" fill="#C4C4C4"/>
+                <rect x="505.525" y="521.49" width="27.6008" height="15.055" transform="rotate(-109.91 505.525 521.49)" fill="#C4C4C4"/>
+                <rect x="609.192" y="501.777" width="27.6008" height="15.055" transform="rotate(-109.91 609.192 501.777)" fill="#C4C4C4"/>
+                <rect x="516.154" y="571.345" width="27.6008" height="15.055" transform="rotate(-109.91 516.154 571.345)" fill="#C4C4C4"/>
+                <rect x="619.822" y="551.633" width="27.6008" height="15.055" transform="rotate(-109.91 619.822 551.633)" fill="#C4C4C4"/>
+                <rect x="528.896" y="625.863" width="27.6008" height="15.055" transform="rotate(-115.129 528.896 625.863)" fill="#C4C4C4"/>
+                <rect x="632.564" y="606.151" width="27.6008" height="15.055" transform="rotate(-115.129 632.564 606.151)" fill="#C4C4C4"/>
+                <rect x="854.658" y="438.018" width="27.6008" height="15.055" transform="rotate(60.8999 854.658 438.018)" fill="#C4C4C4"/>
+                <rect x="824.64" y="420.033" width="27.6008" height="15.055" transform="rotate(16.0686 824.64 420.033)" fill="#C4C4C4"/>
+                <rect x="826.455" y="517.941" width="27.6008" height="15.055" transform="rotate(-178.906 826.455 517.941)" fill="#C4C4C4"/>
+                <rect x="787.719" y="426.728" width="27.6008" height="15.055" transform="rotate(-7.82575 787.719 426.728)" fill="#C4C4C4"/>
+                <rect x="862.734" y="505.034" width="27.6008" height="15.055" transform="rotate(157.174 862.734 505.034)" fill="#C4C4C4"/>
+                <rect x="767.703" y="451.888" width="27.6008" height="15.055" transform="rotate(-62.2179 767.703 451.888)" fill="#C4C4C4"/>
+                <rect x="868.303" y="468.445" width="27.6008" height="15.055" transform="rotate(88.7261 868.303 468.445)" fill="#C4C4C4"/>
+                <rect x="777.369" y="506.715" width="27.6008" height="15.055" transform="rotate(-76.2739 777.369 506.715)" fill="#C4C4C4"/>
+                <rect x="784.62" y="558.617" width="27.6008" height="15.055" transform="rotate(-76.2739 784.62 558.617)" fill="#C4C4C4"/>
+                <rect x="779.579" y="484.935" width="27.6008" height="15.055" transform="rotate(-108.781 779.579 484.935)" fill="#C4C4C4"/>
+                <rect x="789.224" y="534.99" width="27.6008" height="15.055" transform="rotate(-108.781 789.224 534.99)" fill="#C4C4C4"/>
+                <rect x="800.889" y="589.749" width="27.6008" height="15.055" transform="rotate(-114 800.889 589.749)" fill="#C4C4C4"/>
+                <rect x="1072.04" y="578.309" width="29.3199" height="15.9927" transform="rotate(49.2214 1072.04 578.309)" fill="#C4C4C4"/>
+                <rect x="232.387" y="375.949" width="29.3199" height="15.9927" transform="rotate(-134.512 232.387 375.949)" fill="#C4C4C4"/>
+                <rect x="130.846" y="355.437" width="29.3199" height="15.9927" transform="rotate(-138.04 130.846 355.437)" fill="#C4C4C4"/>
+                <rect x="56.3494" y="288.217" width="29.3199" height="15.9927" transform="rotate(-96.981 56.3494 288.217)" fill="#C4C4C4"/>
+                <rect x="135.555" y="669.829" width="29.3199" height="15.9927" transform="rotate(58.7165 135.555 669.829)" fill="#C4C4C4"/>
+                <rect x="1152.62" y="-31.3213" width="29.3199" height="15.9927" transform="rotate(57.6152 1152.62 -31.3213)" fill="#C4C4C4"/>
+                <rect x="1445.17" y="376.251" width="29.3199" height="15.9927" transform="rotate(20.3366 1445.17 376.251)" fill="#C4C4C4"/>
+                <rect x="235.667" y="143.25" width="29.3199" height="15.9927" transform="rotate(145.45 235.667 143.25)" fill="#C4C4C4"/>
+                <rect x="1426.19" y="469.69" width="29.3199" height="15.9927" transform="rotate(67.771 1426.19 469.69)" fill="#C4C4C4"/>
+                <rect x="170.148" y="73.9805" width="29.3199" height="15.9927" transform="rotate(-167.116 170.148 73.9805)" fill="#C4C4C4"/>
+                <rect x="393.809" y="1008.49" width="29.3199" height="15.9927" transform="rotate(-167.116 393.809 1008.49)" fill="#C4C4C4"/>
+                <rect x="1216.97" y="705.979" width="29.3199" height="15.9927" transform="rotate(49.2214 1216.97 705.979)" fill="#C4C4C4"/>
+                <rect x="1316.84" y="760.852" width="29.3199" height="15.9927" transform="rotate(31.4126 1316.84 760.852)" fill="#C4C4C4"/>
+                <path d="M586.091 339.007C586.041 338.051 585.361 337.415 584.38 337.342C583.065 337.217 582.105 338.158 581.965 339.929C581.795 341.757 582.598 342.79 583.9 342.914C584.858 342.984 585.62 342.52 585.865 341.638L587.634 341.79C587.308 343.34 585.882 344.65 583.718 344.464C581.471 344.27 579.934 342.536 580.172 339.774C580.408 337.025 582.243 335.581 584.466 335.784C586.427 335.941 587.801 337.191 587.861 339.16L586.091 339.007ZM588.148 344.725L588.877 336.26L590.622 336.41L590.019 343.416L593.654 343.729L593.528 345.188L588.148 344.725ZM596.671 336.931L595.942 345.396L594.196 345.245L594.925 336.781L596.671 336.931ZM603.01 340.464C602.96 339.508 602.28 338.871 601.299 338.799C599.985 338.674 599.025 339.615 598.884 341.385C598.715 343.213 599.517 344.246 600.819 344.37C601.777 344.44 602.539 343.976 602.784 343.094L604.553 343.246C604.227 344.796 602.802 346.106 600.638 345.92C598.39 345.727 596.853 343.993 597.091 341.231C597.328 338.481 599.162 337.037 601.385 337.24C603.347 337.397 604.72 338.648 604.78 340.616L603.01 340.464ZM605.067 346.181L605.796 337.716L607.541 337.867L607.218 341.621L607.338 341.631L610.722 338.14L612.85 338.323L609.366 341.854L612.145 346.79L610.041 346.609L607.998 342.916L607.021 343.916L606.813 346.331L605.067 346.181ZM615.051 339.982L615.176 338.524L622.087 339.119L621.961 340.577L619.379 340.355L618.776 347.361L617.03 347.211L617.633 340.205L615.051 339.982ZM629.689 344.037C629.463 346.799 627.617 348.242 625.369 348.049C623.121 347.855 621.562 346.107 621.798 343.357C622.035 340.608 623.869 339.164 626.116 339.369C628.365 339.551 629.938 341.288 629.689 344.037ZM623.592 343.512C623.424 345.316 624.201 346.371 625.503 346.495C626.819 346.596 627.764 345.69 627.92 343.884C628.075 342.079 627.299 341.025 625.982 340.923C624.68 340.799 623.735 341.705 623.592 343.512ZM632.414 348.535L633.142 340.07L636.442 340.354C638.378 340.533 639.385 341.704 639.24 343.389C639.141 344.537 638.543 345.329 637.539 345.664L639.061 349.107L637.1 348.938L635.746 345.786L634.419 345.672L634.159 348.685L632.414 348.535ZM634.54 344.261L635.784 344.368C636.824 344.458 637.363 344.071 637.423 343.233C637.509 342.373 637.047 341.864 636.006 341.786L634.762 341.679L634.54 344.261ZM639.49 349.144L640.218 340.679L645.885 341.167L645.76 342.626L641.838 342.288L641.661 344.344L645.296 344.657L645.172 346.092L641.538 345.779L641.361 347.836L645.306 348.175L645.181 349.634L639.49 349.144ZM647.451 349.829L645.562 349.667L649.208 341.453L651.479 341.648L653.668 350.364L651.779 350.202L651.312 348.21L648.251 347.947L647.451 349.829ZM648.813 346.598L650.989 346.785L650.215 343.467L650.143 343.461L648.813 346.598ZM657.109 350.66L654.143 350.405L654.872 341.94L657.885 342.2C660.419 342.43 661.849 344.143 661.61 346.784C661.394 349.427 659.691 350.883 657.109 350.66ZM656.019 349.049L657.166 349.148C658.78 349.287 659.701 348.523 659.864 346.634C660.027 344.745 659.249 343.847 657.66 343.698L656.488 343.597L656.019 349.049Z" fill="black"/>
+                <path d="M592.985 355.824L593.66 354.511L596.781 356.16L595.112 350.748L596.58 350.295L598.249 355.708L599.876 352.594L601.196 353.292L598.357 358.663L592.985 355.824Z" fill="black"/>
+            </g>
+            <defs>
+                <clipPath id="clip0_2093_49">
+                    <rect width="1440" height="1024" fill="white"/>
+                </clipPath>
+            </defs>
+        </svg>
     </div>
+
+    <!-- 이미지 일괄 업로드 패널 -->
+    <div id="image-upload-panel">
+        <span>📷 네모 박스에 이미지 넣기</span>
+        <label for="bulk-image-input">이미지 선택 (여러 장)</label>
+        <input type="file" id="bulk-image-input" accept="image/*" multiple onchange="handleBulkImages(this)">
+        <button id="clear-images-btn" onclick="clearAllImages()">이미지 초기화</button>
+        <span id="upload-status">이미지를 선택하면 순서대로 채워집니다</span>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     메인 인터랙션 페이지
+══════════════════════════════════════════ -->
+<div id="main-page">
+    <nav class="nav-bar">
+        <div class="nav-row">
+            <button class="nav-btn home-btn" onclick="goHome()">← 시작으로</button>
+            <div class="nav-group">
+                <button class="nav-btn active" id="btn-p1" onclick="switchPage(1)">리딩 모드</button>
+                <button class="nav-btn" id="btn-p2" onclick="switchPage(2)">회전 박스 모드</button>
+            </div>
+            <div class="nav-group">
+                <label>개미 수: <span id="antCountDisplay">5</span></label>
+                <input type="range" id="antRange" min="1" max="50" value="5" oninput="manualUpdateAntCount(this.value)">
+            </div>
+            <button class="nav-btn clear" onclick="clearHighlights()">낙서 지우기</button>
+        </div>
+        <div class="nav-row">
+            <div class="nav-group">
+                <label>추적 속도</label>
+                <input type="range" id="speedRange" min="1" max="100" value="30" oninput="updateSpeed(this.value)">
+            </div>
+            <div class="nav-group">
+                <label>합류 속도</label>
+                <input type="range" id="joinRange" min="1" max="100" value="20" oninput="updateJoinSpeed(this.value)">
+            </div>
+        </div>
+    </nav>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="page1" class="page" style="display:block;">
+        <div class="novel-text" id="content">냄새는 지도였고, 법전이었으며, 신이었다.
+개체 번호 '무(μ)-118'에게 세계는 시각적인 풍경이 아니었다. 그것은 코끝(정확히는 예민한 두 개의 더듬이)으로 스며드는 비릿하고 시큼한 화학 분자들의 밀도였다. 공기 중에 떠다니는 수만 가지의 정보 조각들 사이에서 118이 붙잡아야 할 것은 단 하나, 앞서가는 117번의 꼬리 끝에서 분사되는 붉은 선이었다.
+그 선은 명령했다. [직진. 30센티미터 앞 오른쪽으로 15도 굴절. 장애물(말라비틀어진 나뭇잎) 우회.]
+118은 기계적으로 다리를 움직였다. 여섯 개의 다리는 지면의 미세한 진동을 읽어내며 117번이 남긴 궤적을 정확히 밟았다. 118의 머릿속에는 '왜'라는 질문이 들어설 공간이 없었다. 그곳은 오직 군체의 의지, 즉 여왕의 호르몬이 지배하는 중앙 처리 장치와 같았다. 수만 마리의 형제들이 거대한 아파트 104동의 화단 밑, 습하고 어두운 지하 도시에서 지상으로 사출되었다.</div>
+    </div>
+    <div id="page2" class="page"></div>
+</div>
+
+<script>
+/* ══════════════════════════════════
+   SVG 자동 변환 로직 (디자인 툴 연동 편의성)
+══════════════════════════════════ */
+// 1. 회색 네모(#C4C4C4)를 찾아 이미지 박스로 자동 변환합니다.
+document.querySelectorAll('#main-svg rect[fill="#C4C4C4"]').forEach((rect, idx) => {
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute('class', 'img-box');
+    g.dataset.boxId = idx;
     
-    <div id="controls">
-        <button class="btn active" onclick="setAnimal('human')">사람 👣</button>
-        <button class="btn" onclick="setAnimal('cat')">고양이 🐾</button>
-        <button class="btn" onclick="setAnimal('dog')">강아지 🐕</button>
-        <button class="btn" onclick="setAnimal('duck')">오리 🦆</button>
-        <button class="btn" onclick="setAnimal('snake')">뱀 🐍</button>
-    </div>
+    // 네모를 그룹(g)으로 감싸기
+    rect.parentNode.insertBefore(g, rect);
+    g.appendChild(rect);
 
-    <canvas id="snowCanvas"></canvas>
+    // 네모의 위치/크기를 그대로 따라가는 image 태그 자동 생성
+    const img = document.createElementNS("http://www.w3.org/2000/svg", "image");
+    if(rect.hasAttribute('x')) img.setAttribute('x', rect.getAttribute('x'));
+    if(rect.hasAttribute('y')) img.setAttribute('y', rect.getAttribute('y'));
+    img.setAttribute('width', rect.getAttribute('width'));
+    img.setAttribute('height', rect.getAttribute('height'));
+    if(rect.hasAttribute('transform')) img.setAttribute('transform', rect.getAttribute('transform'));
+    img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+    img.style.display = 'none';
+    
+    g.appendChild(img);
+});
 
-    <script>
-        const canvas = document.getElementById('snowCanvas');
-        const ctx = canvas.getContext('2d');
-        const overlay = document.getElementById('overlay');
-        const loadingText = document.getElementById('loading-text');
-        const bgCanvas = document.createElement('canvas');
-        const bgCtx = bgCanvas.getContext('2d');
+// 2. 빨간 네모(#FF0000)를 찾아 시작 버튼으로 자동 변환합니다.
+const startRect = document.querySelector('#main-svg rect[fill="#FF0000"]');
+if (startRect) {
+    const startG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    startG.id = 'start-button';
+    startG.setAttribute('onclick', 'enterMain()');
+    startRect.parentNode.insertBefore(startG, startRect);
+    startG.appendChild(startRect);
+}
 
-        // --- 변수 설정 ---
-        let width, height;
-        let footprints = [];
-        let inputX = 0, inputY = 0;
-        let lastStepX = 0, lastStepY = 0;
-        let isLeftFoot = true;
-        let isInteracting = false; 
+/* ══════════════════════════════════
+   이미지 일괄 업로드 (시작 페이지)
+══════════════════════════════════ */
+const imgBoxes = document.querySelectorAll('.img-box'); // 자동 변환된 요소를 잡아옵니다.
+let loadedImages = [];
 
-        // --- 오디오 관련 변수 ---
-        let audioCtx;
-        let snowBuffer = null; // 실제 사운드 데이터가 담길 곳
-        let isAudioReady = false;
+function handleBulkImages(input) {
+    const files = Array.from(input.files);
+    if (!files.length) return;
 
-        // 실제 눈 밟는 소리 파일 (구글 호스팅 사용)
-        const SOUND_URL = 'https://actions.google.com/sounds/v1/foley/footsteps_snow.ogg';
+    loadedImages = [];
+    const status = document.getElementById('upload-status');
+    status.textContent = '로딩 중...';
 
-        // 동물별 설정 (pitch: 소리 높낮이 1.0이 기본, 높을수록 가벼운 소리)
-        const animals = {
-            human: { dist: 50, pitch: 1.0,  func: drawHuman },
-            cat:   { dist: 25, pitch: 2.0,  func: drawCat },   // 아주 가벼운 소리
-            dog:   { dist: 35, pitch: 1.4,  func: drawDog },
-            duck:  { dist: 20, pitch: 1.8,  func: drawDuck },
-            snake: { dist: 4,  pitch: 0.5,  func: drawSnake }  // 낮고 느린 소리
+    let loaded = 0;
+    files.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            loadedImages[idx] = e.target.result;
+            loaded++;
+            if (loaded === files.length) {
+                applyImagesToBoxes(loadedImages);
+                status.textContent = `${files.length}장 적용 완료`;
+            }
         };
+        reader.readAsDataURL(file);
+    });
+}
 
-        let currentAnimal = 'human';
-
-        // --- 초기화 ---
-        function init() {
-            resize();
-            createSnowBackground();
-            loadSound(); // 사운드 파일 다운로드 시작
-            animate();
+function applyImagesToBoxes(imageDataList) {
+    imgBoxes.forEach((box, idx) => {
+        const imgEl = box.querySelector('image');
+        const rectEl = box.querySelector('rect');
+        const src = imageDataList[idx % imageDataList.length];
+        if (imgEl && src) {
+            imgEl.setAttributeNS('http://www.w3.org/1999/xlink', 'href', src);
+            imgEl.setAttribute('href', src);
+            imgEl.style.display = 'block';
+            if (rectEl) rectEl.setAttribute('fill', 'none'); // 이미지가 로드되면 기존 네모는 투명하게 처리
         }
+    });
+}
 
-        function resize() {
-            width = window.innerWidth;
-            height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
-            bgCanvas.width = width;
-            bgCanvas.height = height;
-            createSnowBackground();
+function clearAllImages() {
+    imgBoxes.forEach(box => {
+        const imgEl = box.querySelector('image');
+        const rectEl = box.querySelector('rect');
+        if (imgEl) {
+            imgEl.removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
+            imgEl.removeAttribute('href');
+            imgEl.style.display = 'none';
         }
+        if (rectEl) rectEl.setAttribute('fill', '#C4C4C4');
+    });
+    document.getElementById('upload-status').textContent = '이미지를 선택하면 순서대로 채워집니다';
+    document.getElementById('bulk-image-input').value = '';
+    loadedImages = [];
+}
 
-        window.setAnimal = function(name) {
-            currentAnimal = name;
-            event.stopPropagation();
-            document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-        };
+/* ══════════════════════════════════
+   페이지 전환
+══════════════════════════════════ */
+const introPage = document.getElementById('intro-page');
+const mainPage  = document.getElementById('main-page');
+const uploadPanel = document.getElementById('image-upload-panel');
+let mainStarted = false;
 
-        // --- 진짜 사운드 로딩 (Fetch API) ---
-        async function loadSound() {
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                
-                const response = await fetch(SOUND_URL);
-                const arrayBuffer = await response.arrayBuffer();
-                
-                // 오디오 데이터 디코딩
-                snowBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                
-                isAudioReady = true;
-                loadingText.innerText = "로딩 완료! 클릭해서 시작하세요.";
-            } catch (error) {
-                console.error("사운드 로딩 실패:", error);
-                loadingText.innerText = "사운드 로딩 실패 (인터넷 연결 확인 필요)";
+function enterMain() {
+    uploadPanel.style.opacity = '0';
+    uploadPanel.style.pointerEvents = 'none';
+
+    introPage.classList.add('hidden');
+    mainPage.style.display = 'block';
+    
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            mainPage.style.opacity = '1';
+        });
+    });
+
+    setTimeout(() => {
+        introPage.style.display = 'none';
+    }, 700);
+
+    if (!mainStarted) {
+        mainStarted = true;
+        initMain();
+    }
+    resizeCanvas();
+    startAutoAdd();
+}
+
+function goHome() {
+    if (autoAddInterval) clearInterval(autoAddInterval);
+
+    mainPage.style.opacity = '0';
+    setTimeout(() => {
+        mainPage.style.display = 'none';
+        introPage.style.display = 'flex';
+        introPage.classList.remove('hidden');
+        uploadPanel.style.opacity = '1';
+        uploadPanel.style.pointerEvents = 'auto';
+    }, 600);
+}
+
+/* ══════════════════════════════════
+   메인 인터랙션 로직
+══════════════════════════════════ */
+const canvas  = document.getElementById('canvas');
+const ctx     = canvas.getContext('2d');
+
+let currentPage  = 1;
+let ants         = [];
+let highlights   = [];
+let mouse        = { x: 0, y: 0 };
+let isDragging   = false;
+const ANT_SPACING = 40;
+
+let followEasing = 0.03;
+let joinEasing   = 0.02;
+let boxRotation  = 0;
+let boxSize      = 450;
+let autoAddInterval;
+const AUTO_ADD_TIME = 10000;
+
+const sentences = [
+    "냄새는 지도였고, 법전이었으며, 신이었다.",
+    "개체 번호 '무(μ)-118'에게 세계는 시각적인 풍경이 아니었다.",
+    "그것은 비릿하고 시큼한 화학 분자들의 밀도였다.",
+    "앞서가는 117번의 꼬리 끝에서 분사되는 붉은 선이었다.",
+    "여왕의 호르몬이 지배하는 중앙 처리 장치와 같았다."
+];
+let currentSentenceIdx = 0;
+
+class Ant {
+    constructor(index, startPos = null) {
+        this.index     = index;
+        this.isJoining = !!startPos;
+        this.x         = startPos ? startPos.x : Math.random() * window.innerWidth;
+        this.y         = startPos ? startPos.y : Math.random() * window.innerHeight;
+        this.angle     = 0;
+        this.progress  = 0 - (index * 0.05);
+    }
+
+    update(targetX, targetY) {
+        if (currentPage === 1) {
+            const dx   = targetX - this.x;
+            const dy   = targetY - this.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > ANT_SPACING) {
+                this.angle = Math.atan2(dy, dx);
+                const ease = this.isJoining ? joinEasing : followEasing;
+                this.x += Math.cos(this.angle) * (dist - ANT_SPACING) * ease;
+                this.y += Math.sin(this.angle) * (dist - ANT_SPACING) * ease;
+                if (dist < ANT_SPACING + 5) this.isJoining = false;
+            }
+        } else {
+            const cx = window.innerWidth / 2;
+            const cy = window.innerHeight / 2;
+            let p  = (this.progress < 0 ? 0 : this.progress) % 1;
+            let lx, ly, la;
+
+            if      (p < 0.25) { lx = -boxSize/2 + (p/0.25)*boxSize;           ly = -boxSize/2; la = 0; }
+            else if (p < 0.5)  { lx = boxSize/2;  ly = -boxSize/2 + ((p-0.25)/0.25)*boxSize; la = Math.PI/2; }
+            else if (p < 0.75) { lx = boxSize/2 - ((p-0.5)/0.25)*boxSize;      ly = boxSize/2;  la = Math.PI; }
+            else               { lx = -boxSize/2; ly = boxSize/2 - ((p-0.75)/0.25)*boxSize;   la = -Math.PI/2; }
+
+            const rx = lx * Math.cos(boxRotation) - ly * Math.sin(boxRotation);
+            const ry = lx * Math.sin(boxRotation) + ly * Math.cos(boxRotation);
+            this.x   = cx + rx;
+            this.y   = cy + ry;
+            this.angle = la + boxRotation;
+
+            this.progress += 0.0015;
+            if (this.index === 0 && this.progress >= 1) {
+                this.progress = 0;
+                currentSentenceIdx = (currentSentenceIdx + 1) % sentences.length;
             }
         }
+    }
 
-        // --- 오디오 재생 엔진 (핵심) ---
-        function playRealSnowSound() {
-            if (!audioCtx || !snowBuffer) return;
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-
-            const source = audioCtx.createBufferSource();
-            source.buffer = snowBuffer;
-
-            // 1. 동물별 기본 톤 설정
-            let basePitch = animals[currentAnimal].pitch;
-            
-            // 2. 랜덤 변주 (기관총 효과 방지)
-            // 매 걸음마다 0.9 ~ 1.1 배속 사이로 미세하게 변화를 줌
-            const randomDetune = 0.9 + Math.random() * 0.2; 
-            source.playbackRate.value = basePitch * randomDetune;
-
-            // 3. 볼륨 조절
-            const gainNode = audioCtx.createGain();
-            // 뱀은 소리가 작게, 나머지는 적당히
-            const volume = currentAnimal === 'snake' ? 0.2 : 0.6;
-            gainNode.gain.value = volume;
-
-            // 4. 소리가 너무 길면 자르기 (짧고 간결하게 '뽀득')
-            // 원본 파일이 길 수 있으므로 0.3초 뒤에 페이드 아웃
-            gainNode.gain.linearRampToValueAtTime(volume, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-
-            source.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            
-            // 재생 시작
-            // 뱀은 연속적이라 시작 위치를 랜덤으로 해서 텍스처를 만듦
-            const offset = currentAnimal === 'snake' ? Math.random() * 2 : 0;
-            source.start(0, offset); 
-        }
-
-        // --- 배경 그래픽 ---
-        function createSnowBackground() {
-            bgCtx.fillStyle = '#FFFFFF';
-            bgCtx.fillRect(0, 0, width, height);
-            const imageData = bgCtx.getImageData(0, 0, width, height);
-            const data = imageData.data;
-            for (let i = 0; i < data.length; i += 4) {
-                const grain = (Math.random() - 0.5) * 15;
-                data[i] = 255 - grain;
-                data[i+1] = 255 - grain;
-                data[i+2] = 255 - grain + 2;
-            }
-            bgCtx.putImageData(imageData, 0, 0);
-        }
-
-        // --- 그리기 함수들 ---
-        function drawHuman(ctx, isLeft) {
-            const offset = isLeft ? -12 : 12;
-            ctx.translate(0, offset);
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.fillStyle = '#111';
+        for (let i of [-5, 0, 5]) {
             ctx.beginPath();
-            ctx.ellipse(-8, 0, 10, 7, 0, 0, Math.PI * 2);
-            ctx.ellipse(8, 0, 13, 9, 0, 0, Math.PI * 2);
+            ctx.ellipse(i, 0, i===5 ? 2.2 : 3.2, 1.8, 0, 0, Math.PI*2);
             ctx.fill();
         }
-        function drawCat(ctx, isLeft) {
-            const offset = isLeft ? -5 : 5;
-            ctx.translate(0, offset);
-            ctx.beginPath(); ctx.ellipse(0, 0, 8, 6, 0, 0, Math.PI * 2); ctx.fill();
-            for(let i=-1.5; i<=1.5; i+=1) {
-                ctx.beginPath(); ctx.arc(8, i * 4, 2.5, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+function drawRotatingBox() {
+    const cx   = window.innerWidth / 2;
+    const cy   = window.innerHeight / 2;
+    const text = sentences[currentSentenceIdx];
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(boxRotation);
+    ctx.font      = "18pt 'Noto Serif KR'";
+    ctx.fillStyle = "#333";
+    ctx.textAlign = "center";
+
+    ctx.fillText(text, 0, -boxSize/2 - 10);
+    ctx.save(); ctx.rotate(Math.PI/2);  ctx.fillText(text, 0, -boxSize/2 - 10); ctx.restore();
+    ctx.save(); ctx.rotate(Math.PI);    ctx.fillText(text, 0, -boxSize/2 - 10); ctx.restore();
+    ctx.save(); ctx.rotate(-Math.PI/2); ctx.fillText(text, 0, -boxSize/2 - 10); ctx.restore();
+
+    ctx.restore();
+    boxRotation += 0.003;
+}
+
+function updateSpeed(val)    { followEasing = val / 1000; }
+function updateJoinSpeed(val){ joinEasing   = val / 1000; }
+function manualUpdateAntCount(val) { updateAntCount(val); }
+
+function updateAntCount(val) {
+    const target = parseInt(val);
+    document.getElementById('antCountDisplay').innerText = target;
+    if (ants.length < target) for (let i = ants.length; i < target; i++) ants.push(new Ant(i));
+    else ants = ants.slice(0, target);
+}
+
+function startAutoAdd() {
+    if (autoAddInterval) clearInterval(autoAddInterval);
+    autoAddInterval = setInterval(() => {
+        if (ants.length >= 50 || mainPage.style.display === 'none') return;
+        let rx, ry;
+        const side = Math.floor(Math.random() * 4);
+        if      (side === 0) { rx = Math.random() * window.innerWidth;  ry = -20; }
+        else if (side === 1) { rx = window.innerWidth + 20;             ry = Math.random() * window.innerHeight; }
+        else if (side === 2) { rx = Math.random() * window.innerWidth;  ry = window.innerHeight + 20; }
+        else                 { rx = -20;                                ry = Math.random() * window.innerHeight; }
+        ants.push(new Ant(ants.length, { x: rx, y: ry }));
+        document.getElementById('antRange').value = ants.length;
+        document.getElementById('antCountDisplay').innerText = ants.length;
+    }, AUTO_ADD_TIME);
+}
+
+/* ── 하이라이트 ── */
+function handleMouseDown(e) {
+    if (mainPage.style.display === 'none') return;
+    isDragging = true;
+}
+function handleMouseMove(e) {
+    if (mainPage.style.display === 'none') return;
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+
+    if (isDragging && currentPage === 1) {
+        const sel = window.getSelection();
+        if (sel.rangeCount > 0 && !sel.isCollapsed) {
+            const range = sel.getRangeAt(0);
+            const rects = range.getClientRects();
+            for (let r of rects) {
+                const midY   = r.top + r.height / 2;
+                const exists = highlights.find(h => Math.abs(h.originalMidY - midY) < 5 && Math.abs(h.originalRight - r.right) < 2);
+                if (!exists) {
+                    highlights.push({
+                        points: generateScribblePoints(r),
+                        scrollY: document.getElementById('page1').scrollTop,
+                        originalMidY: midY,
+                        originalRight: r.right,
+                        alpha: 0.6, life: 1.0, isFading: false
+                    });
+                }
             }
         }
-        function drawDog(ctx, isLeft) {
-            const offset = isLeft ? -10 : 10;
-            ctx.translate(0, offset);
-            ctx.beginPath(); ctx.moveTo(-5, -5); ctx.lineTo(-5, 5); ctx.lineTo(5, 0); ctx.fill();
-            for(let i=-1.5; i<=1.5; i+=1) {
-                const y = i * 5;
-                ctx.beginPath(); ctx.arc(8, y, 3, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(14, y, 1, 0, Math.PI*2); 
-                ctx.fillStyle = "#ccc"; ctx.fill(); ctx.fillStyle = "#Eef2f5";
-            }
+    }
+}
+function handleMouseUp() {
+    isDragging = false;
+    highlights.forEach(h => h.isFading = true);
+    setTimeout(() => window.getSelection().removeAllRanges(), 50);
+}
+
+function generateScribblePoints(rect) {
+    const pts = [];
+    for (let i = 0; i < rect.width; i += 2) {
+        pts.push({ x: rect.left + i, y: rect.top + rect.height/2 + (Math.random()-0.5)*6.5 });
+    }
+    return pts;
+}
+
+function drawHighlights() {
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.strokeStyle = 'rgba(240, 255, 0, 1)';
+    ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    const page1El = document.getElementById('page1');
+    const scrollOffset = page1El ? page1El.scrollTop : 0;
+
+    for (let i = highlights.length - 1; i >= 0; i--) {
+        const h = highlights[i];
+        if (!h.points || h.points.length === 0) { highlights.splice(i, 1); continue; }
+        if (h.isFading) h.life -= 0.008;
+        if (h.life <= 0) { highlights.splice(i, 1); continue; }
+        ctx.globalAlpha = h.alpha * h.life;
+        const offset = h.scrollY - scrollOffset;
+        ctx.beginPath();
+        ctx.moveTo(h.points[0].x, h.points[0].y + offset);
+        for (let j = 1; j < h.points.length; j++) {
+            ctx.lineTo(h.points[j].x + (Math.random()-0.5)*0.5, h.points[j].y + offset + (Math.random()-0.5)*0.5);
         }
-        function drawDuck(ctx, isLeft) {
-            const offset = isLeft ? -8 : 8;
-            ctx.translate(0, offset);
-            ctx.lineWidth = 2; ctx.strokeStyle = "#Eef2f5"; ctx.lineCap = "round";
-            ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(10, 0);
-            ctx.moveTo(-5, 0); ctx.lineTo(8, -6);
-            ctx.moveTo(-5, 0); ctx.lineTo(8, 6); ctx.stroke();
-        }
-        function drawSnake(ctx, isLeft) {
-            ctx.beginPath(); ctx.ellipse(0, 0, 15, 6, 0, 0, Math.PI * 2); ctx.fill();
-        }
+        ctx.stroke();
+    }
+    ctx.restore();
+}
 
-        class Footprint {
-            constructor(x, y, angle, isLeft, type) {
-                this.x = x; this.y = y; this.angle = angle;
-                this.isLeft = isLeft; this.type = type;
-                this.opacity = 1.0; this.scale = 0;
-            }
-            update() {
-                const fade = this.type === 'snake' ? 0.03 : 0.008;
-                this.opacity -= fade;
-                if (this.scale < 1) this.scale += 0.2;
-            }
-            draw(context) {
-                if (this.opacity <= 0.01) return;
-                context.save();
-                context.translate(this.x, this.y);
-                context.rotate(this.angle);
-                context.globalAlpha = Math.max(0, this.opacity);
-                context.scale(this.scale, this.scale);
-                context.shadowColor = "rgba(180, 190, 200, 0.6)";
-                context.shadowBlur = 8; context.shadowOffsetX = 2; context.shadowOffsetY = 2;
-                context.fillStyle = "#Eef2f5";
-                animals[this.type].func(context, this.isLeft);
-                context.restore();
-            }
-        }
+function switchPage(num) {
+    currentPage = num;
+    document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+    document.getElementById('page'+num).style.display = (num === 1 ? 'block' : 'flex');
+    document.getElementById('btn-p1').classList.toggle('active', num === 1);
+    document.getElementById('btn-p2').classList.toggle('active', num === 2);
+    if (num === 2) ants.forEach((a, i) => a.progress = 0 - (i * 0.05));
+}
 
-        // --- 이벤트 핸들러 ---
-        function handleStart(e) {
-            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-            
-            // 첫 클릭 시 오버레이 숨김
-            if (overlay.style.opacity !== '0') {
-                overlay.style.opacity = 0;
-                setTimeout(() => overlay.style.display = 'none', 500);
-            }
+function clearHighlights() { highlights = []; }
 
-            const point = e.touches ? e.touches[0] : e;
-            inputX = point.clientX;
-            inputY = point.clientY;
-            lastStepX = inputX;
-            lastStepY = inputY;
-            isInteracting = true;
-        }
+function resizeCanvas() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
 
-        function handleMove(e) {
-            if (!isInteracting && !e.touches) return;
-            if(e.cancelable) e.preventDefault();
+function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const point = e.touches ? e.touches[0] : e;
-            inputX = point.clientX;
-            inputY = point.clientY;
-            isInteracting = true;
+    if (mainPage.style.display !== 'none' && parseFloat(mainPage.style.opacity) > 0) {
+        let tx = mouse.x, ty = mouse.y;
+        ants.forEach(ant => {
+            ant.update(tx, ty);
+            ant.draw();
+            tx = ant.x; ty = ant.y;
+        });
 
-            if (lastStepX === 0 && lastStepY === 0) {
-                lastStepX = inputX;
-                lastStepY = inputY;
-                return;
-            }
+        if (currentPage === 1) drawHighlights();
+        else                   drawRotatingBox();
+    }
 
-            const dx = inputX - lastStepX;
-            const dy = inputY - lastStepY;
-            const distance = Math.hypot(dx, dy);
-            
-            const config = animals[currentAnimal];
+    requestAnimationFrame(animate);
+}
 
-            if (distance > config.dist) {
-                const angle = Math.atan2(dy, dx);
-                footprints.push(new Footprint(inputX, inputY, angle, isLeftFoot, currentAnimal));
-                
-                // 진짜 사운드 재생
-                if (isAudioReady) playRealSnowSound();
+function initMain() {
+    updateAntCount(5);
+}
 
-                lastStepX = inputX;
-                lastStepY = inputY;
-                isLeftFoot = !isLeftFoot;
-            }
-        }
+/* ── 이벤트 등록 ── */
+window.addEventListener('mousedown',  handleMouseDown);
+window.addEventListener('mousemove',  handleMouseMove);
+window.addEventListener('mouseup',    handleMouseUp);
+window.addEventListener('resize', () => resizeCanvas());
 
-        function handleEnd() {
-            if ('ontouchstart' in window) isInteracting = false; 
-            lastStepX = 0;
-            lastStepY = 0;
-        }
-
-        // --- 이벤트 리스너 ---
-        window.addEventListener('mousedown', handleStart);
-        window.addEventListener('mousemove', handleMove);
-        window.addEventListener('mouseup', handleEnd);
-
-        window.addEventListener('touchstart', handleStart, { passive: false });
-        window.addEventListener('touchmove', handleMove, { passive: false });
-        window.addEventListener('touchend', handleEnd);
-
-        window.addEventListener('resize', resize);
-        
-        // --- 애니메이션 루프 ---
-        function animate() {
-            ctx.drawImage(bgCanvas, 0, 0);
-
-            for (let i = footprints.length - 1; i >= 0; i--) {
-                const fp = footprints[i];
-                fp.update();
-                fp.draw(ctx);
-                if (fp.opacity <= 0) footprints.splice(i, 1);
-            }
-
-            if (isInteracting) {
-                ctx.fillStyle = "rgba(150, 150, 150, 0.5)";
-                ctx.beginPath();
-                ctx.arc(inputX, inputY, 4, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            requestAnimationFrame(animate);
-        }
-
-        init();
-    </script>
+resizeCanvas();
+animate();
+</script>
 </body>
 </html>
