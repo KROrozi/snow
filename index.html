@@ -123,6 +123,7 @@
             z-index: 100;
             border-bottom: 1px solid #eee;
             gap: 8px;
+            transition: opacity 0.4s;
         }
         .nav-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
         .nav-group { display: flex; align-items: center; gap: 8px; }
@@ -157,9 +158,40 @@
             text-align: justify;
             white-space: pre-wrap;
         }
+
+        /* ─── UI 토글 버튼 및 숨김 클래스 ─── */
+        #ui-toggle-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            font-size: 22px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transition: 0.3s;
+        }
+        #ui-toggle-btn:hover {
+            background: #fff;
+            transform: scale(1.05);
+        }
+        .ui-hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
     </style>
 </head>
 <body>
+
+<!-- 전체 UI 보이기/숨기기 토글 버튼 -->
+<button id="ui-toggle-btn" onclick="toggleUI()" title="UI 보이기/숨기기">👁️</button>
 
 <!-- ══════════════════════════════════════════
      시작 페이지 (SVG + 이미지 일괄 업로드)
@@ -167,7 +199,6 @@
 <div id="intro-page">
     <div id="intro-svg-wrap">
         <svg id="main-svg" viewBox="0 0 1440 1024" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- 적용된 새로운 SVG 파트 -->
             <g clip-path="url(#clip0_2093_49)">
                 <rect width="1440" height="1024" fill="white"/>
                 <rect x="728.465" y="648.659" width="29.3199" height="15.9927" transform="rotate(174.384 728.465 648.659)" fill="#C4C4C4"/>
@@ -515,14 +546,47 @@
 
 <script>
 /* ══════════════════════════════════
+   UI 숨기기/보이기 토글 로직
+══════════════════════════════════ */
+let isUIHidden = false;
+
+function toggleUI() {
+    isUIHidden = !isUIHidden;
+    const toggleBtn = document.getElementById('ui-toggle-btn');
+    const navBar = document.querySelector('.nav-bar');
+    const uploadPanel = document.getElementById('image-upload-panel');
+    
+    if (isUIHidden) {
+        navBar.classList.add('ui-hidden');
+        uploadPanel.classList.add('ui-hidden');
+        toggleBtn.style.opacity = '0.5';
+    } else {
+        navBar.classList.remove('ui-hidden');
+        uploadPanel.classList.remove('ui-hidden');
+        toggleBtn.style.opacity = '1';
+    }
+}
+
+/* ══════════════════════════════════
    SVG 자동 변환 로직 (디자인 툴 연동 편의성)
 ══════════════════════════════════ */
-// 1. 회색 네모(#C4C4C4)를 찾아 이미지 박스로 자동 변환합니다.
-document.querySelectorAll('#main-svg rect[fill="#C4C4C4"]').forEach((rect, idx) => {
+// 회색 네모와 빨간 네모 모두 이미지 박스로 자동 변환합니다.
+document.querySelectorAll('#main-svg rect[fill="#C4C4C4"], #main-svg rect[fill="#FF0000"]').forEach((rect, idx) => {
+    const fill = rect.getAttribute('fill');
     const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    
     g.setAttribute('class', 'img-box');
     g.dataset.boxId = idx;
     
+    // 원래 색상을 기억해 둡니다 (초기화할 때 사용)
+    rect.setAttribute('data-original-fill', fill);
+    
+    // 빨간색 시작 버튼인 경우 추가 속성 부여
+    if (fill === '#FF0000') {
+        g.id = 'start-button';
+        g.setAttribute('onclick', 'enterMain()');
+    }
+
     // 네모를 그룹(g)으로 감싸기
     rect.parentNode.insertBefore(g, rect);
     g.appendChild(rect);
@@ -540,20 +604,10 @@ document.querySelectorAll('#main-svg rect[fill="#C4C4C4"]').forEach((rect, idx) 
     g.appendChild(img);
 });
 
-// 2. 빨간 네모(#FF0000)를 찾아 시작 버튼으로 자동 변환합니다.
-const startRect = document.querySelector('#main-svg rect[fill="#FF0000"]');
-if (startRect) {
-    const startG = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    startG.id = 'start-button';
-    startG.setAttribute('onclick', 'enterMain()');
-    startRect.parentNode.insertBefore(startG, startRect);
-    startG.appendChild(startRect);
-}
-
 /* ══════════════════════════════════
    이미지 일괄 업로드 (시작 페이지)
 ══════════════════════════════════ */
-const imgBoxes = document.querySelectorAll('.img-box'); // 자동 변환된 요소를 잡아옵니다.
+const imgBoxes = document.querySelectorAll('.img-box'); // 자동 변환된 요소를 잡아옵니다 (빨간 버튼 포함).
 let loadedImages = [];
 
 function handleBulkImages(input) {
@@ -602,7 +656,10 @@ function clearAllImages() {
             imgEl.removeAttribute('href');
             imgEl.style.display = 'none';
         }
-        if (rectEl) rectEl.setAttribute('fill', '#C4C4C4');
+        if (rectEl) {
+            // 처음 설정했던 원래 색상(#C4C4C4 또는 #FF0000)으로 되돌리기
+            rectEl.setAttribute('fill', rectEl.getAttribute('data-original-fill') || '#C4C4C4');
+        }
     });
     document.getElementById('upload-status').textContent = '이미지를 선택하면 순서대로 채워집니다';
     document.getElementById('bulk-image-input').value = '';
@@ -618,6 +675,7 @@ const uploadPanel = document.getElementById('image-upload-panel');
 let mainStarted = false;
 
 function enterMain() {
+    // 패널 자체의 인라인 스타일을 숨김 처리 (단, eye 버튼에 의한 ui-hidden이 우선될 수 있음)
     uploadPanel.style.opacity = '0';
     uploadPanel.style.pointerEvents = 'none';
 
